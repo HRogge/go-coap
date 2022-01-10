@@ -3,12 +3,10 @@ package tcp
 import (
 	"bytes"
 	"context"
-	"errors"
 	"fmt"
 	"net"
 	"sync"
 	"sync/atomic"
-	"syscall"
 	"time"
 
 	"github.com/plgd-dev/go-coap/v2/message"
@@ -224,7 +222,7 @@ func (s *Session) handleSignals(r *pool.Message, cc *ClientConn) bool {
 		// if r.HasOption(coapTCP.Custody) {
 		//TODO
 		// }
-		if err := s.sendPong(r.Token()); err != nil && !errors.Is(err, syscall.EPIPE) {
+		if err := s.sendPong(r.Token()); err != nil && !coapNet.IsConnError(err) {
 			s.errors(fmt.Errorf("cannot handle ping signal: %w", err))
 		}
 		return true
@@ -402,6 +400,9 @@ func (s *Session) Run(cc *ClientConn) (err error) {
 		}
 		readLen, err := s.connection.ReadWithContext(s.Context(), readBuf)
 		if err != nil {
+			if coapNet.IsConnError(err) { // other side closed the connection, ignore the error and return
+				return nil
+			}
 			return fmt.Errorf("cannot read from connection: %w", err)
 		}
 		if readLen > 0 {
