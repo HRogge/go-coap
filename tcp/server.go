@@ -274,7 +274,9 @@ func (s *Server) Serve(l Listener) error {
 // Stop stops server without wait of ends Serve function.
 func (s *Server) Stop() {
 	s.cancel()
-	s.listen.Close()
+	if err := s.listen.Close(); err != nil {
+		s.errors(fmt.Errorf("cannot close listener: %w", err))
+	}
 }
 
 func (s *Server) createClientConn(connection *coapNet.Conn, monitor inactivity.Monitor) *ClientConn {

@@ -285,7 +285,9 @@ func (s *Session) processReq(req *pool.Message, cc *ClientConn, handler func(w *
 	if w.response.IsModified() {
 		err := s.WriteMessage(w.response)
 		if err != nil {
-			s.Close()
+			if errClose := s.Close(); errClose != nil {
+				s.errors(fmt.Errorf("cannot close connection: %w", errClose))
+			}
 			s.errors(fmt.Errorf("cannot write response to %v: %w", s.connection.RemoteAddr(), err))
 		}
 	}
