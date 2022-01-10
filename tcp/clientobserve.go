@@ -79,7 +79,9 @@ func (o *Observation) handler(w *ResponseWriter, r *pool.Message) {
 }
 
 func (o *Observation) cleanUp() bool {
-	o.cc.observationTokenHandler.Pop(o.token)
+	if _, err := o.cc.observationTokenHandler.Pop(o.token); err != nil {
+		return false
+	}
 	_, ok := o.cc.observationRequests.PullOut(o.token.Hash())
 	return ok
 }

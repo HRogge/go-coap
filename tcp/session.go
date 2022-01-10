@@ -3,10 +3,12 @@ package tcp
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"net"
 	"sync"
 	"sync/atomic"
+	"syscall"
 	"time"
 
 	"github.com/plgd-dev/go-coap/v2/message"
@@ -222,7 +224,9 @@ func (s *Session) handleSignals(r *pool.Message, cc *ClientConn) bool {
 		// if r.HasOption(coapTCP.Custody) {
 		//TODO
 		// }
-		s.sendPong(r.Token())
+		if err := s.sendPong(r.Token()); err != nil && !errors.Is(err, syscall.EPIPE) {
+			s.errors(fmt.Errorf("cannot handle ping signal: %w", err))
+		}
 		return true
 	case codes.Release:
 		// if r.HasOption(coapTCP.AlternativeAddress) {
@@ -327,9 +331,12 @@ func (s *Session) processBuffer(buffer *bytes.Buffer, cc *ClientConn) error {
 		if s.handleSignals(req, cc) {
 			continue
 		}
-		s.goPool(func() {
+		err = s.goPool(func() {
 			s.processReq(req, cc, s.Handle)
 		})
+		if err != nil {
+			return fmt.Errorf("cannot spawn go routine: %w", err)
+		}
 	}
 	return nil
 }
